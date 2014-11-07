@@ -1,0 +1,71 @@
+= yjson design doc =
+author: liuyang(liuyang1@mail.ustc.edu.cn)
+date:   2014-11-05
+
+== abstract ==
+yjson is a json library in c language.
+
+* parse json doc to struct.
+* write json struc to file.
+* build json struct.
+* modify(add,delete,change) on json struct.
+* read or use json struct.
+
+    IN                         OUT
+   file ->               -> data struct
+            JSON struct
+data suct ->             ->    file
+
+== json struct ==
+
+=== Meta struct ===
+* type
+* paraent pointer
+
+TYPE to indicate class type.
+
+pointer to build tree-struct.
+paraent pointer to back recursion to root node.
+
+=== array or object ===
+* next/piror (left/right) pointer
+* child pointer
+
+next/piror (left/right) pointer for ARRAY or OBJECT type, start as first
+element, end with NULL pointer.
+child pointer is for OBJECT type only.
+
+array has value type.
+
+object has string value type pair.
+
+=== value type ===
+same as basic type, maybe as array, object, string, number type.
+or true, false, null basic val.
+
+=== string ===
+string type.
+
+just like c stirng. prefix and suffix with ".
+
+using \ to speicial char.
+
+=== number ===
+"-0a.b+e" format.
+
+== interface design ==
+# support build struct from c basic data struct.
+such as from c INT or DOUBLE build to json number; from c string build to json
+string, etc.
+# support both TOP-DOWN and DOWN-TOP style build struct.
+=== DOWN-TOP ===
+yType* n = new(NUMMETA, 10);
+yType* t = new(OBJECTMETA);
+insertValue(s, n);
+
+first build n, then build t;
+
+=== TOP-DOWN ===
+yType* t = new(OBJECTMETA);
+pairpointer = insertKey(s);
+new(NUMMETA, 10, &pairpointer);
