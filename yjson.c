@@ -69,7 +69,7 @@ void yFree(yType* p)
         free(p);
     }
 }
-int _debug = 1;
+int _debug = 0;
 int _calllevel = 0;
 void debug(const char *fmt, ...)
 {
@@ -84,6 +84,14 @@ void debug(const char *fmt, ...)
     }
     vprintf(fmt, args);
     va_end(args);
+}
+void disabledebug()
+{
+    _debug = 0;
+}
+void enabledebug()
+{
+    _debug = 1;
 }
 #define infn            {_calllevel++;debug("%s >>>>\n", __FUNCTION__);}
 #define outfn           {debug("%s <<<<\n", __FUNCTION__);_calllevel--;}
@@ -246,6 +254,46 @@ double yParseNumber(char* s, size_t* oStep)
     *oStep = crs - s;
     return ret;
 }
+char transMap(char c)
+{
+    static char Map[2][20] = {"\"\\/bfnrt", "\"\\/\b\f\n\r\t"};
+    size_t j;
+    char ret;
+    for (j = 0; j < sizeof(Map[0]); j++) {
+        if (c == Map[0][j]) {
+            ret = Map[1][j];
+            break;
+        }
+    }
+    return ret;
+}
+char* yParseString(char* s, size_t* oStep)
+{
+    char* o = s;
+    int trans = 0;
+    while (!(*s == sStringBE && trans == 0)) {
+        if (*s == sStringTrans && trans == 0) {
+            trans = 1;
+        } else if (trans == 1) {
+            trans = 0;
+        }
+        s++;
+    }
+    *oStep = s - o;
+
+    char* ret = malloc(sizeof(*oStep));
+    size_t i, f;
+    for (i = 0, f = 0; f < *oStep; i++, f++) {
+        if (o[f] == sStringTrans) {
+            f++;
+            ret[i] = transMap(o[f]);
+        } else {
+            ret[i] = o[f];
+        }
+    }
+    ret[i] = sStringTerm;
+    return ret;
+}
 // IN:  char* s
 // OUT: foward step
 // RET: yType* p
@@ -257,11 +305,15 @@ void* yParse(char* s, size_t* oStep)
     while (1) {
         if (isspace(*crs)) {
             continue;
+        } else if (*crs == sStringTerm) {
+            break;
         } else if (*crs == sStringBE) {
-            crs = probeString(s);
+            crs++;
+            char* str = yParseString(crs, &step);
             yString* p = yAlloc(eString);
-            yStringSet(p, s + 1, crs);
-            s = crs + 1;
+            p->s = str;
+            pp = p;
+            crs += step + 1;
         } else if (*crs == sArrayBegin) {
             crs++;
             yType* ae;
@@ -270,14 +322,12 @@ void* yParse(char* s, size_t* oStep)
             }
         } else if (*crs == sObjectBegin) {
 
-        } else if (*crs == sStringTerm) {
-            break;
         } else {
             double d = yParseNumber(crs, &step);
             yNumber* p = yAlloc(eNumber);
             p->n = d;
-            crs += step;
             pp = p;
+            crs += step;
         }
     }
     if (oStep != NULL) {
@@ -314,12 +364,22 @@ void testNumber()
 }
 void testString()
 {
-    yString *p = (yString*)yAlloc(eString);
-    yStringSet(p, "123", NULL);
-    assert(strcmp(p->s, "123") == 0);
-    char s[] = "123";
-    yStringSet(p, s, s+2);
-    assert(strcmp(p->s, "12") == 0);
+    infn;
+    yString* p;
+    char sa[][20] = {"\"0123\"", "\"0123\\t56789\"",
+    "\"\\\"\"", // only one quote
+    "\"\\\\\"", // only one trans
+    "\"\\/\"", // only one backslash /
+    "\"\\\n\"", // only new line
+    "\"\u27af\"", // unicode char test
+    };
+    size_t i, step;
+    for (i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
+        debug("test case %d s %s\n", i, sa[i]);
+        p = yParse(sa[i], &step);
+        debug("s %20s -> %20s\n", sa[i], p->s);
+    }
+    outfn;
 }
 void testParse()
 {
@@ -332,12 +392,13 @@ void testParse()
 }
 int main()
 {
+    enabledebug();
     puts("----begin----");
     testNumber();
     puts("----number done----");
     testString();
     puts("----string done----");
-    testParse();
+    // testParse();
     puts("----parser done----");
     puts("----over ----");
     return 0;
