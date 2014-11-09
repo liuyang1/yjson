@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
 #include <stdarg.h>
 #include "stdlib.h"
@@ -41,7 +42,7 @@ typedef struct {
 
 typedef struct {
     yTypeHead head;
-    long long n;
+    double n;
 } yNumber;
 
 void yHeadInit(yTypeHead* h, yMeta meta, yType* parent)
@@ -108,12 +109,6 @@ void yDump(yType* p)
     }
     debug("\n");
 }
-ErrorCode yNumberSet(yNumber* p, char *s)
-{
-    p->n = atoll(s);
-    return OK;
-}
-
 typedef enum {
     sObjectBegin = '{',
     sObjectEnd = '}',
@@ -152,6 +147,7 @@ ErrorCode yStringSet(yString* p, char* b, char* e)
         t = *e;
         *e = 0;
     }
+    // TODO: Trans char
     p->s = strdup(b);
     debug("%p %s %p %s\n", b, b, p->s, p->s);
     if (e != NULL) {
@@ -193,38 +189,128 @@ char* probeString(char* s)
 {
     return forwardUntilFind(s, prbStringEndFn);
 }
-void* yParse(char* s)
+int yParseDigit(char* s, size_t* oStep)
 {
-    infn;
     char* crs = s;
-    char t;
-    yType* p = NULL;
+    int v = 0;
+    while (isdigit(*crs)) {
+        v = (*crs - '0') + 10 * v;
+        crs++;
+    }
+    *oStep = crs - s;
+    return v;
+}
+int yParseInt(char *s, size_t* oStep)
+{
+    char* crs = s;
+    int v = 0;
+    int sym = 1;
+    size_t step;
+    if (*crs == '-') {
+        sym = -1;
+        crs++;
+    } else if (*crs == '+') {
+        sym = 1;
+        crs++;
+    }
+    v = yParseDigit(crs, &step);
+    v = sym * v;
+    crs += step;
+    *oStep = crs - s;
+    return v;
+}
+double yParseNumber(char* s, size_t* oStep)
+{
+    char* crs = s;
+    double v, ret;
+    size_t step;
+    ret = yParseInt(crs, &step);
+    crs += step;
+    if (*crs == '.') {
+        crs++;
+        v = yParseDigit(crs, &step);
+        v = v / pow(10, step);
+        if (ret >= 0) {
+            ret += v;
+        } else {
+            ret -= v;
+        }
+        crs += step;
+    }
+    if (*crs == 'e' || *crs == 'E') {
+        crs++;
+        v = yParseInt(crs, &step);
+        ret *= pow(10, v);
+        crs += step;
+    }
+    *oStep = crs - s;
+    return ret;
+}
+// IN:  char* s
+// OUT: foward step
+// RET: yType* p
+void* yParse(char* s, size_t* oStep)
+{
+    char* crs = s;
+    size_t step;
+    void *pp;
     while (1) {
-        if (isspace(*s)) {
+        if (isspace(*crs)) {
             continue;
-        } else if (*s == sStringBE) {
+        } else if (*crs == sStringBE) {
             crs = probeString(s);
-            p = yAlloc(eString);
-            yStringSet(p, s+1, crs);
+            yString* p = yAlloc(eString);
+            yStringSet(p, s + 1, crs);
             s = crs + 1;
-        } else if (*s == sArrayBegin) {
-            
-        } else if (*s == sObjectBegin) {
+        } else if (*crs == sArrayBegin) {
+            crs++;
+            yType* ae;
+            while (*crs != sArrayEnd) {
+                ae = yParse(s, &step);
+            }
+        } else if (*crs == sObjectBegin) {
 
-        } else if (*s == sStringTerm) {
+        } else if (*crs == sStringTerm) {
             break;
+        } else {
+            double d = yParseNumber(crs, &step);
+            yNumber* p = yAlloc(eNumber);
+            p->n = d;
+            crs += step;
+            pp = p;
         }
     }
-    outfn;
-    return p;
+    if (oStep != NULL) {
+        *oStep = crs - s;
+    }
+    return pp;
 }
 void testNumber()
 {
-    yNumber* p = (yNumber*)yAlloc(eNumber);
-    yNumberSet(p, "123");
-    assert(p->n == 123);
-    yNumberSet(p, "-123");
-    assert(p->n == -123);
+    infn;
+    char s[] = "12";
+    int v1;
+    size_t step;
+    v1 = yParseDigit(s, &step);
+    debug("v %ld step %d\n", v1, step);
+    char s2[] = "-123";
+    v1 = yParseInt(s2, &step);
+    debug("v %d step %d\n", v1, step);
+    debug("----number basic over----\n");
+    char sarray[][20] = {"123", "-123", "-123.1", "-123.1e1", "-123.1E-1", "0123"};
+    unsigned int i;
+    double d;
+    for (i = 0; i < sizeof(sarray) / sizeof(sarray[0]); i++) {
+        d = yParseNumber(sarray[i], &step);
+        debug("s %10s -> d %10.3f step %d\n", sarray[i], d, step);
+    }
+    debug("----number over----\n");
+    yNumber* p;
+    for (i = 0; i < sizeof(sarray) / sizeof(sarray[0]); i++) {
+        p = yParse(sarray[i], &step);
+        debug("s %10s -> d %10.3f step %d\n", sarray[i], p->n, step);
+    }
+    outfn;
 }
 void testString()
 {
