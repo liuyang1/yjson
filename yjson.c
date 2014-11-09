@@ -60,38 +60,53 @@ void* yAlloc(yMeta meta)
     return p;
 }
 
+void yFree(yType* p)
+{
+    // TODO:
+    // need free child-pointer and next-pointer
+    if (p != NULL) {
+        free(p);
+    }
+}
 int _debug = 1;
+int _calllevel = 0;
 void debug(const char *fmt, ...)
 {
     if (_debug <= 0)
         return;
+    static int spacecnt = 2;
     va_list args;
     va_start(args, fmt);
+    int i;
+    for (i = 0; i < _calllevel * spacecnt; i++) {
+        putchar(' ');
+    }
     vprintf(fmt, args);
     va_end(args);
 }
-#define infn            {debug("%s enter\n", __FUNCTION__);}
-#define outfn           {debug("%s leave\n", __FUNCTION__);}
+#define infn            {_calllevel++;debug("%s >>>>\n", __FUNCTION__);}
+#define outfn           {debug("%s <<<<\n", __FUNCTION__);_calllevel--;}
 void yDump(yType* p)
 {
+    debug("----dump %p----\n", p);
     if (p == NULL) {
-        printf("null pointer\n");
+        debug("null pointer\n");
         return;
     }
     if (p->meta == eObject) {
-        printf("object");
+        debug("object");
     } else if (p->meta == eArray) {
-        printf("array");
+        debug("array");
     } else if (p->meta == eString) {
         yString* ps = (yString*)p;
-        printf("str: %s\n", ps->s);
+        debug("str: %s\n", ps->s);
     } else if (p->meta == eNumber) {
         yNumber* pn = (yNumber*)p;
-        printf("num: %lld\n", pn->n);
+        debug("num: %lld\n", pn->n);
     } else {
-        printf("unknown!");
+        debug("unknown!");
     }
-    printf("\n");
+    debug("\n");
 }
 ErrorCode yNumberSet(yNumber* p, char *s)
 {
@@ -128,19 +143,17 @@ ErrorCode yStringSet(yString* p, char* b, char* e)
 {
     infn;
     debug("param: %p %p %p\n", p, b, e);
+    debug("value: %s\n", b);
     if (p->s) {
         free(p->s);
     }
     char t;
     if (e != NULL) {
         t = *e;
-        infn;
         *e = 0;
-        infn;
     }
-    infn;
     p->s = strdup(b);
-    printf("%p %s %p %s\n", b, b, p->s, p->s);
+    debug("%p %s %p %s\n", b, b, p->s, p->s);
     if (e != NULL) {
         *e = t;
     }
@@ -182,16 +195,18 @@ char* probeString(char* s)
 }
 void* yParse(char* s)
 {
+    infn;
     char* crs = s;
+    char t;
     yType* p = NULL;
     while (1) {
         if (isspace(*s)) {
             continue;
         } else if (*s == sStringBE) {
             crs = probeString(s);
-            debug("%p %c %p %c\n", s, *s, crs, *crs);
             p = yAlloc(eString);
             yStringSet(p, s+1, crs);
+            s = crs + 1;
         } else if (*s == sArrayBegin) {
             
         } else if (*s == sObjectBegin) {
@@ -200,6 +215,7 @@ void* yParse(char* s)
             break;
         }
     }
+    outfn;
     return p;
 }
 void testNumber()
@@ -221,14 +237,22 @@ void testString()
 }
 void testParse()
 {
-    yType* p = yParse("\"123\"");
+    char s[] = "\"123\"";
+    yType* p = yParse(s);
     yDump(p);
+    // XXX: rdata section, cannot write, so yStringSet maybe error;
+    // yType* p1 = yParse("\"123\"");
+    // yDump(p1);
 }
 int main()
 {
+    puts("----begin----");
     testNumber();
-    // testString();
+    puts("----number done----");
+    testString();
+    puts("----string done----");
     testParse();
-    printf("test over!\n");
+    puts("----parser done----");
+    puts("----over ----");
     return 0;
 }
