@@ -2,48 +2,11 @@
 #include <math.h>
 #include <string.h>
 #include <stdarg.h>
-#include "stdlib.h"
-#include "assert.h"
-#include "ctype.h"
+#include <stdlib.h>
+#include <assert.h>
+#include <ctype.h>
 
-typedef enum {
-    OK = 0,
-    Error,
-} ErrorCode;
-typedef enum {
-    eInvalid = 0,
-    eObject,
-    eArray,
-    eString,
-    eNumber,
-} yMeta;
-struct yType {
-    yMeta meta;
-    struct yType* parent;
-};
-typedef struct yType yTypeHead;
-typedef struct yType yType;
-
-typedef struct yObject {
-    yTypeHead head;
-    struct yType* firstchild;
-} yObject;
-
-typedef struct {
-    yTypeHead head;
-    yType* next;
-    yType* prior;
-} yArray;
-
-typedef struct {
-    yTypeHead head;
-    char* s;
-} yString;
-
-typedef struct {
-    yTypeHead head;
-    double n;
-} yNumber;
+#include "yjson.h"
 
 void yHeadInit(yTypeHead* h, yMeta meta, yType* parent)
 {
@@ -93,8 +56,6 @@ void enabledebug()
 {
     _debug = 1;
 }
-#define infn            {_calllevel++;debug("%s >>>>\n", __FUNCTION__);}
-#define outfn           {debug("%s <<<<\n", __FUNCTION__);_calllevel--;}
 void yDump(yType* p)
 {
     debug("----dump %p----\n", p);
@@ -131,72 +92,6 @@ typedef enum {
     sDebug = 1,
     sNoDebug = 0,
 } yState;
-int isNotZeroDigit(char c)
-{
-    return c >= '1' && c <= '9';
-}
-char* skipWhitespace(char* s)
-{
-    while (isspace(*s)) {
-        s++;
-    }
-    return s;
-}
-ErrorCode yStringSet(yString* p, char* b, char* e)
-{
-    infn;
-    debug("param: %p %p %p\n", p, b, e);
-    debug("value: %s\n", b);
-    if (p->s) {
-        free(p->s);
-    }
-    char t;
-    if (e != NULL) {
-        t = *e;
-        *e = 0;
-    }
-    // TODO: Trans char
-    p->s = strdup(b);
-    debug("%p %s %p %s\n", b, b, p->s, p->s);
-    if (e != NULL) {
-        *e = t;
-    }
-    outfn;
-    return OK;
-}
-
-char* incStr(char *s)
-{
-    return s+1;
-}
-char* decStr(char *s)
-{
-    return s-1;
-}
-char* stringUntilFind(char* s, int direct, int (*fn)(char*))
-{
-    char* (*mvfn)(char*) = direct >= sPosLogic ? incStr : decStr;
-    do {
-        s = mvfn(s);
-    } while (!(*fn)(s));
-    return s;
-}
-char* forwardUntilFind(char* s, int (*fn)(char*))
-{
-    return stringUntilFind(s, sPosLogic, fn);
-}
-char* backwardUntilFind(char* s, int (*fn)(char*))
-{
-    return stringUntilFind(s, sNegLogic, fn);
-}
-int prbStringEndFn(char* s)
-{
-    return (*s == sStringBE && (*s-1) != sStringTerm);
-}
-char* probeString(char* s)
-{
-    return forwardUntilFind(s, prbStringEndFn);
-}
 int yParseDigit(char* s, size_t* oStep)
 {
     char* crs = s;
@@ -294,9 +189,6 @@ char* yParseString(char* s, size_t* oStep)
     ret[i] = sStringTerm;
     return ret;
 }
-// IN:  char* s
-// OUT: foward step
-// RET: yType* p
 void* yParse(char* s, size_t* oStep)
 {
     char* crs = s;
@@ -334,72 +226,4 @@ void* yParse(char* s, size_t* oStep)
         *oStep = crs - s;
     }
     return pp;
-}
-void testNumber()
-{
-    infn;
-    char s[] = "12";
-    int v1;
-    size_t step;
-    v1 = yParseDigit(s, &step);
-    debug("v %ld step %d\n", v1, step);
-    char s2[] = "-123";
-    v1 = yParseInt(s2, &step);
-    debug("v %d step %d\n", v1, step);
-    debug("----number basic over----\n");
-    char sarray[][20] = {"123", "-123", "-123.1", "-123.1e1", "-123.1E-1", "0123"};
-    unsigned int i;
-    double d;
-    for (i = 0; i < sizeof(sarray) / sizeof(sarray[0]); i++) {
-        d = yParseNumber(sarray[i], &step);
-        debug("s %10s -> d %10.3f step %d\n", sarray[i], d, step);
-    }
-    debug("----number over----\n");
-    yNumber* p;
-    for (i = 0; i < sizeof(sarray) / sizeof(sarray[0]); i++) {
-        p = yParse(sarray[i], &step);
-        debug("s %10s -> d %10.3f step %d\n", sarray[i], p->n, step);
-    }
-    outfn;
-}
-void testString()
-{
-    infn;
-    yString* p;
-    char sa[][20] = {"\"0123\"", "\"0123\\t56789\"",
-    "\"\\\"\"", // only one quote
-    "\"\\\\\"", // only one trans
-    "\"\\/\"", // only one backslash /
-    "\"\\\n\"", // only new line
-    "\"\u27af\"", // unicode char test
-    };
-    size_t i, step;
-    for (i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
-        debug("test case %d s %s\n", i, sa[i]);
-        p = yParse(sa[i], &step);
-        debug("s %20s -> %20s\n", sa[i], p->s);
-    }
-    outfn;
-}
-void testParse()
-{
-    char s[] = "\"123\"";
-    yType* p = yParse(s);
-    yDump(p);
-    // XXX: rdata section, cannot write, so yStringSet maybe error;
-    // yType* p1 = yParse("\"123\"");
-    // yDump(p1);
-}
-int main()
-{
-    enabledebug();
-    puts("----begin----");
-    testNumber();
-    puts("----number done----");
-    testString();
-    puts("----string done----");
-    // testParse();
-    puts("----parser done----");
-    puts("----over ----");
-    return 0;
 }
