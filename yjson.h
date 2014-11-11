@@ -16,14 +16,13 @@ typedef enum {
     eArray,
     eString,
     eNumber,
+    eArrayNode,
 } yMeta;
 
-struct yType {
+typedef struct yType {
     yMeta meta;
     struct yType* parent;
-};
-typedef struct yType yTypeHead;
-typedef struct yType yType;
+}yType, yTypeHead;
 
 typedef struct yObject {
     yTypeHead head;
@@ -31,9 +30,12 @@ typedef struct yObject {
 } yObject;
 
 typedef struct {
-    yTypeHead head;
+    yType* elm;
     yType* next;
-    yType* prior;
+} yArrayNode;
+typedef struct {
+    yTypeHead head;
+    yArrayNode* node;
 } yArray;
 
 typedef struct {

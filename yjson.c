@@ -14,13 +14,16 @@ void yHeadInit(yTypeHead* h, yMeta meta, yType* parent)
     h->parent = parent;
 }
 size_t type2size[] = {0, sizeof(yObject), sizeof(yArray),
-                      sizeof(yString), sizeof(yNumber)};
+                      sizeof(yString), sizeof(yNumber),
+                      sizeof(yArrayNode),};
 void* yAlloc(yMeta meta)
 {
     size_t len = type2size[meta];
     yTypeHead* p = (yTypeHead*)malloc(len);
     bzero(p, len);
-    yHeadInit(p, meta, NULL);
+    if (meta != eArrayNode) {
+        yHeadInit(p, meta, NULL);
+    }
     return p;
 }
 
@@ -56,27 +59,54 @@ void enabledebug()
 {
     _debug = 1;
 }
+void yDisplay(yType* p)
+{
+    if (p == NULL) {
+        printf("nil");
+    } else if (p->meta == eObject) {
+
+    } else if (p->meta == eArray) {
+        printf("[");
+        yArrayNode* pp = ((yArray*)p)->node;
+        while (pp != NULL) {
+            yDisplay(pp->elm);
+            pp = pp->next;
+            if (pp == NULL) {
+                break;
+            }
+            printf(", ");
+        }
+        printf("]");
+    } else if (p->meta == eString) {
+        printf("\"%s\"", ((yString*)p)->s);
+    } else if (p->meta == eNumber) {
+        printf("%.3f", ((yNumber*)p)->n);
+    } else {
+        printf("UNKOWN");
+    }
+}
 void yDump(yType* p)
 {
-    debug("----dump %p----\n", p);
+    debug("dump %p: ", p);
     if (p == NULL) {
         debug("null pointer\n");
         return;
     }
     if (p->meta == eObject) {
-        debug("object");
+        debug("object\n");
     } else if (p->meta == eArray) {
-        debug("array");
+        debug("array: ");
+        yDisplay(p);
+        debug("\n");
     } else if (p->meta == eString) {
         yString* ps = (yString*)p;
         debug("str: %s\n", ps->s);
     } else if (p->meta == eNumber) {
         yNumber* pn = (yNumber*)p;
-        debug("num: %lld\n", pn->n);
+        debug("num: %10.3f\n", pn->n);
     } else {
         debug("unknown!");
     }
-    debug("\n");
 }
 typedef enum {
     sObjectBegin = '{',
@@ -196,8 +226,33 @@ void* yParse(char* s, size_t* oStep)
     void *pp;
     while (1) {
         if (isspace(*crs)) {
+            crs++;
             continue;
         } else if (*crs == sStringTerm) {
+            break;
+        } else if (*crs == sObjectBegin) {
+
+        } else if (*crs == sArrayBegin) {
+            crs++;
+            pp = yAlloc(eArray);
+            yArray* pa = pp;
+            yArrayNode** tail = &(pa->node);
+            while (*crs != sArrayEnd) {
+                yArrayNode* pn = yAlloc(eArrayNode);
+                pn->elm = yParse(crs, &step);
+                crs += step;
+                *tail = pn;
+                tail = &(pn->next);
+                while (isspace(*crs)) {
+                    crs++;
+                }
+                if (*crs == sDelimeter) {
+                    crs++;
+                    continue;
+                }
+            }
+            crs++;
+            tail = NULL;
             break;
         } else if (*crs == sStringBE) {
             crs++;
@@ -206,20 +261,16 @@ void* yParse(char* s, size_t* oStep)
             p->s = str;
             pp = p;
             crs += step + 1;
-        } else if (*crs == sArrayBegin) {
-            crs++;
-            yType* ae;
-            while (*crs != sArrayEnd) {
-                ae = yParse(s, &step);
-            }
-        } else if (*crs == sObjectBegin) {
-
-        } else {
+            break;
+        } else if (isdigit(*crs) || *crs == '+' || *crs == '-'){
             double d = yParseNumber(crs, &step);
             yNumber* p = yAlloc(eNumber);
             p->n = d;
             pp = p;
             crs += step;
+            break;
+        } else {
+            printf("error: unknown %p %s\n", crs, crs);
         }
     }
     if (oStep != NULL) {
