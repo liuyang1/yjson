@@ -87,12 +87,39 @@ void testSymbol()
     for (size_t i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
         p = yParse(sa[i], &step);
         if (p != NULL) {
-            debug("s %s -> %d\n", sa[i], p->val);
+            debug("s %s -> ", sa[i]);
+            yDisplay(p);
+            debug("\n");
         } else {
             debug("s %s -> %p\n", sa[i], p);
         }
     }
     debug("----symbol yParse passed----\n");
+}
+void testObject()
+{
+    yObject* p;
+    char sa[][50] = {
+        "{\"a\":1}",
+        "{\"a\":\"abc\", \"abc\":true}",
+        "{\"a\":\"abc\", \"abc\":true, \"def\":[\"abc\"]}",
+        "[123, \"abc\", true, {\"a\":1}]",
+        "{ \"elm\": {\"a\": 1} }",
+        "{ \"e[]{}m\": {\"a\": 1} }",
+        "{    \"e[]{}m\"   :    {   \"a\"  :   1  }   }  ",
+    };
+    size_t step;
+    for (size_t i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
+        p = yParse(sa[i], &step);
+        if (p != NULL) {
+            debug("s %s -> ", sa[i]);
+            yDisplay(p);
+            debug("\n");
+        } else {
+            debug("s %s -> %p\n", sa[i], p);
+        }
+    }
+    debug("----ojbect yParse passed----\n");
 }
 void testParse()
 {
@@ -114,6 +141,7 @@ int main()
     testString();
     testArray();
     testSymbol();
+    testObject();
     // testParse();
     puts("----parser done----");
     puts("----over ----");

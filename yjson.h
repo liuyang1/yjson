@@ -18,17 +18,12 @@ typedef enum {
     eNumber,
     eArrayNode,
     eSymbol,
+    eObjectNode,
 } yMeta;
 
 typedef struct yType {
     yMeta meta;
-    struct yType* parent;
 }yType, yTypeHead;
-
-typedef struct yObject {
-    yTypeHead head;
-    struct yType* firstchild;
-} yObject;
 
 typedef struct {
     yType* elm;
@@ -43,6 +38,16 @@ typedef struct {
     yTypeHead head;
     char* s;
 } yString;
+
+typedef struct {
+    yString* key;
+    yType* value;
+    yType* next;
+} yObjectNode;
+typedef struct yObject {
+    yTypeHead head;
+    yObjectNode* node;
+} yObject;
 
 typedef struct {
     yTypeHead head;
