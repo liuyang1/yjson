@@ -8,6 +8,8 @@
 
 #include "yjson.h"
 
+char ySymbolStr[][10] = {"null", "true", "false"};
+
 void yHeadInit(yTypeHead* h, yMeta meta, yType* parent)
 {
     h->meta = meta;
@@ -15,7 +17,7 @@ void yHeadInit(yTypeHead* h, yMeta meta, yType* parent)
 }
 size_t type2size[] = {0, sizeof(yObject), sizeof(yArray),
                       sizeof(yString), sizeof(yNumber),
-                      sizeof(yArrayNode),};
+                      sizeof(yArrayNode), sizeof(ySymbol)};
 void* yAlloc(yMeta meta)
 {
     size_t len = type2size[meta];
@@ -81,6 +83,8 @@ void yDisplay(yType* p)
         printf("\"%s\"", ((yString*)p)->s);
     } else if (p->meta == eNumber) {
         printf("%.3f", ((yNumber*)p)->n);
+    } else if (p->meta == eSymbol) {
+        printf("%s", ySymbolStr[((ySymbol*)p)->val]);
     } else {
         printf("UNKOWN");
     }
@@ -219,6 +223,24 @@ char* yParseString(char* s, size_t* oStep)
     ret[i] = sStringTerm;
     return ret;
 }
+
+ySymbolVal yParseSymbol(char* s, size_t* oStep)
+{
+    ySymbolVal v = ysInvalid;
+    size_t i;
+    for (i = 0; i < sizeof(ySymbolStr) / sizeof(ySymbolStr[0]); i++) {
+        if (strncasecmp(s, ySymbolStr[i], strlen(ySymbolStr[i])) == 0) {
+            v = i;
+            *oStep = strlen(ySymbolStr[i]);
+            break;
+        }
+    }
+    return v;
+}
+char* yParseKey(char* s, size_t* oStep)
+{
+    
+}
 void* yParse(char* s, size_t* oStep)
 {
     char* crs = s;
@@ -231,6 +253,8 @@ void* yParse(char* s, size_t* oStep)
         } else if (*crs == sStringTerm) {
             break;
         } else if (*crs == sObjectBegin) {
+            crs++;
+            pp = yAlloc(eObject);
 
         } else if (*crs == sArrayBegin) {
             crs++;
@@ -270,7 +294,18 @@ void* yParse(char* s, size_t* oStep)
             crs += step;
             break;
         } else {
-            printf("error: unknown %p %s\n", crs, crs);
+            ySymbolVal v = yParseSymbol(crs, &step);
+            if (v != ysInvalid) {
+                ySymbol* p = yAlloc(eSymbol);
+                p->val = v;
+                pp = p;
+                crs += step;
+                break;
+            } else {
+                pp = NULL;
+                printf("error: unknown %p %s\n", crs, crs);
+                break;
+            }
         }
     }
     if (oStep != NULL) {

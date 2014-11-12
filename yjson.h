@@ -17,6 +17,7 @@ typedef enum {
     eString,
     eNumber,
     eArrayNode,
+    eSymbol,
 } yMeta;
 
 typedef struct yType {
@@ -47,6 +48,17 @@ typedef struct {
     yTypeHead head;
     double n;
 } yNumber;
+
+typedef enum {
+    ysInvalid = -1,
+    ysNull = 0,
+    ysTrue = 1,
+    ysFalse = 2,
+} ySymbolVal;
+typedef struct {
+    yTypeHead head;
+    ySymbolVal val;
+} ySymbol;
 // IN:  char* s
 // OUT: foward step
 // RET: yType* p

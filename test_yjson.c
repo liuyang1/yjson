@@ -62,14 +62,37 @@ void testArray()
         "[   11  ,  \"123\"  ,  -4  ]",
         "[   11  ,  \"a  12  3\"  ,  -4  ]",
         "[   11  ,  [ 1, 2 ],  -4  ]",
+        "[   true, false, null, [TRUE, false]]",
     };
     size_t i, step;
     for (i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
         p = yParse(sa[i], &step);
-        debug("s %20s ->\n", sa[i]);
+        debug("s %s ->\n", sa[i]);
         yDump(p);
     }
     debug("----array yParse passed----\n");
+}
+void testSymbol()
+{
+    ySymbol* p;
+    char sa[][50] = {
+        "true",
+        "True",
+        "TRUE",
+        "false",
+        "null",
+        "invalid"
+    };
+    size_t step;
+    for (size_t i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
+        p = yParse(sa[i], &step);
+        if (p != NULL) {
+            debug("s %s -> %d\n", sa[i], p->val);
+        } else {
+            debug("s %s -> %p\n", sa[i], p);
+        }
+    }
+    debug("----symbol yParse passed----\n");
 }
 void testParse()
 {
@@ -90,6 +113,7 @@ int main()
     testNumber();
     testString();
     testArray();
+    testSymbol();
     // testParse();
     puts("----parser done----");
     puts("----over ----");
