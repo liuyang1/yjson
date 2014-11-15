@@ -62,13 +62,14 @@ void testArray()
         "[   11  ,  \"123\"  ,  -4  ]",
         "[   11  ,  \"a  12  3\"  ,  -4  ]",
         "[   11  ,  [ 1, 2 ],  -4  ]",
+        "[   true, false, null]",
         "[   true, false, null, [TRUE, false]]",
     };
     size_t i, step;
     for (i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
+        debug("s %s ->\t", sa[i]);
         p = yParse(sa[i], &step);
-        debug("s %s ->\n", sa[i]);
-        yDump(p);
+        yDisplay(p);
     }
     debug("----array yParse passed----\n");
 }
@@ -89,7 +90,6 @@ void testSymbol()
         if (p != NULL) {
             debug("s %s -> ", sa[i]);
             yDisplay(p);
-            debug("\n");
         } else {
             debug("s %s -> %p\n", sa[i], p);
         }
@@ -114,24 +114,11 @@ void testObject()
         if (p != NULL) {
             debug("s %s -> ", sa[i]);
             yDisplay(p);
-            debug("\n");
         } else {
             debug("s %s -> %p\n", sa[i], p);
         }
     }
     debug("----ojbect yParse passed----\n");
-}
-void testParse()
-{
-    char s[] = "\"123\"";
-    yType* p = yParse(s, NULL);
-    yDump(p);
-    // XXX: rdata section, cannot write, so yStringSet maybe error;
-    // yType* p1 = yParse("\"123\"");
-    // yDump(p1);
-    char s1[] = "[1,2,3]";
-    yType* p1 = yParse(s1, NULL);
-    yDump(p1);
 }
 int main()
 {
