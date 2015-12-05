@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 1
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -6,6 +7,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
+#include <unistd.h>
 
 #include "yjson.h"
 
@@ -32,6 +34,37 @@ void debug(const char *fmt, ...)
         putchar('\n');
     }
     va_end(args);
+}
+
+enum {
+    dev_unknown,
+    dev_tty,
+    dev_file,
+};
+int gTypeTTY = dev_unknown;
+char *CtrlRed = "\033[0;31m";
+char *CtrlReset = "\033[0;m";
+char *prefix = "";
+char *suffix = "";
+
+void error(const char *fmt, ...)
+{
+    if (gTypeTTY == dev_unknown) {
+        gTypeTTY = isatty(fileno(stderr)) ? dev_tty: dev_file;
+        if (gTypeTTY == dev_tty) {
+            prefix = CtrlRed;
+            suffix = CtrlReset;
+        }
+    }
+    fprintf(stderr, "%s", prefix);
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fprintf(stderr, "%s", suffix);
+    if (fmt[strlen(fmt) - 1] != '\n') {
+        fprintf(stderr, "\n");
+    }
 }
 
 void disabledebug()
@@ -350,7 +383,7 @@ yObject *ykParseObject(char *crs, size_t *oStep)
         if (*crs == sObjectDelt) {
             crs++;
         } else {
-            debug("error: cannot find sObjectDelt");
+            error("error: cannot find sObjectDelt");
             return NULL;
         }
         pn->value = yParse(crs, &step);
@@ -379,7 +412,7 @@ ySymbol *ykParseSymbol(char *crs, size_t *oStep)
         *oStep = step;
         return p;
     } else {
-        printf("error: unknown %p %s", crs, crs);
+        error("error: unknown %p %s", crs, crs);
         return NULL;
     }
 }
