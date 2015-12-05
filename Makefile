@@ -1,5 +1,5 @@
 TARGET=yjson
-CPPFLAGS=-std=c99
+CPPFLAGS=-std=c99 -Wall -Werror
 LIBS=-lm
 ${TARGET}:yjson.o test_yjson.o
 	gcc ${CPPFLAGS} $^ -o $@ ${LIBS}

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <strings.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -14,8 +15,9 @@ int _debug = 0;
 int _calllevel = 0;
 void debug(const char *fmt, ...)
 {
-    if (_debug <= 0)
+    if (_debug <= 0) {
         return;
+    }
     static int spacecnt = 2;
     va_list args;
     va_start(args, fmt);
@@ -26,26 +28,28 @@ void debug(const char *fmt, ...)
     vprintf(fmt, args);
     // auto add newline char
     size_t len = strlen(fmt);
-    if (len != 0 && fmt[len-1] != '\n') {
+    if (len != 0 && fmt[len - 1] != '\n') {
         putchar('\n');
     }
     va_end(args);
 }
+
 void disabledebug()
 {
     _debug = 0;
 }
+
 void enabledebug()
 {
     _debug = 1;
 }
 
-void yHeadInit(yTypeHead* h, yMeta meta)
+void yHeadInit(yTypeHead *h, yMeta meta)
 {
     h->meta = meta;
 }
 
-typedef enum {
+enum {
     sObjectBegin = '{',
     sObjectEnd = '}',
     sObjectDelt = ':',
@@ -57,23 +61,30 @@ typedef enum {
     sStringTerm = '\0',
 };
 
-typedef void   (*yTypeFn)       (yType*);
-typedef yType* (*yTypeParseFn)  (char*, int*);
+typedef void   (*yTypeFn)       (yType *);
+typedef yType * (*yTypeParseFn)  (char *, int *);
 typedef struct {
     int size;
     yTypeFn init;
     yTypeFn display;
 } yTypeMap;
 
-void yObjectDisp(yType* p)
+void yDisplayRecur(yType *p);
+
+void yStringDisp(yType *p)
 {
-    yObjectNode* pp = ((yObject*)p)->node;
+    printf("\"%s\"", ((yString *)p)->s);
+}
+
+void yObjectDisp(yType *p)
+{
+    yObjectNode *pp = ((yObject *)p)->node;
     putchar(sObjectBegin);
     while (pp != NULL) {
-        yStringDisp(pp->key);
+        yStringDisp((yType *)pp->key);
         putchar(sObjectDelt);
         yDisplayRecur(pp->value);
-        pp = pp->next;
+        pp = (yObjectNode *)pp->next;
         if (pp == NULL) {
             break;
         }
@@ -81,13 +92,14 @@ void yObjectDisp(yType* p)
     }
     putchar(sObjectEnd);
 }
-void yArrayDisp(yType* p)
+
+void yArrayDisp(yType *p)
 {
     putchar(sArrayBegin);
-    yArrayNode *pp = ((yArray*)p)->node;
+    yArrayNode *pp = ((yArray *)p)->node;
     while (pp != NULL) {
         yDisplayRecur(pp->elm);
-        pp = pp->next;
+        pp = (yArrayNode *)pp->next;
         if (pp == NULL) {
             break;
         }
@@ -95,20 +107,19 @@ void yArrayDisp(yType* p)
     }
     putchar(sArrayEnd);
 }
-void yStringDisp(yType* p)
+
+void yNumberDisp(yType *p)
 {
-    printf("\"%s\"", ((yString*)p)->s);
+    printf("%.3f", ((yNumber *)p)->n);
 }
-void yNumberDisp(yType* p)
+
+void ySymbolDisp(yType *p)
 {
-    printf("%.3f", ((yNumber*)p)->n);
+    printf("%s", ySymbolStr[((ySymbol *)p)->val]);
 }
-void ySymbolDisp(yType* p)
-{
-    printf("%s", ySymbolStr[((ySymbol*)p)->val]);
-}
+
 yTypeMap map[] = {
-    [eInvalid]      = {0, NULL, NULL, NULL},
+    [eInvalid]      = {0, NULL, NULL},
     [eObject]       = {sizeof(yObject), NULL, yObjectDisp},
     [eArray] = {sizeof(yArray), NULL, yArrayDisp},
     [eString] = {sizeof(yString), NULL, yStringDisp},
@@ -118,17 +129,18 @@ yTypeMap map[] = {
     [eObjectNode] = {sizeof(yObjectNode), NULL, NULL},
 };
 
-void* yAlloc(yMeta meta)
+void *yAlloc(yMeta meta)
 {
     size_t len = map[meta].size;
-    yTypeHead* p = (yTypeHead*)malloc(len);
+    yTypeHead *p = (yTypeHead *)malloc(len);
     bzero(p, len);
     if (meta != eArrayNode || meta != eObjectNode) {
         yHeadInit(p, meta);
     }
     return p;
 }
-void yFree(yType* p)
+
+void yFree(yType *p)
 {
     // TODO:
     // need free child-pointer and next-pointer
@@ -136,7 +148,8 @@ void yFree(yType* p)
         free(p);
     }
 }
-void yDisplayRecur(yType* p)
+
+void yDisplayRecur(yType *p)
 {
     yTypeFn fn = map[p->meta].display;
     if (fn != NULL) {
@@ -145,18 +158,21 @@ void yDisplayRecur(yType* p)
         printf("cannot display %p", p);
     }
 }
-void yDisplay(yType* p)
+
+void yDisplay(void *p)
 {
     if (p == NULL) {
         printf("nil");
         return;
     }
-    yDisplayRecur(p);
+    yType *pType = (yType *)p;
+    yDisplayRecur(pType);
     putchar('\n');
 }
-int yParseDigit(char* s, size_t* oStep)
+
+int yParseDigit(char *s, size_t *oStep)
 {
-    char* crs = s;
+    char *crs = s;
     int v = 0;
     while (isdigit(*crs)) {
         v = (*crs - '0') + 10 * v;
@@ -165,9 +181,10 @@ int yParseDigit(char* s, size_t* oStep)
     *oStep = crs - s;
     return v;
 }
-int yParseInt(char *s, size_t* oStep)
+
+int yParseInt(char *s, size_t *oStep)
 {
-    char* crs = s;
+    char *crs = s;
     int v = 0;
     int sym = 1;
     size_t step;
@@ -184,9 +201,10 @@ int yParseInt(char *s, size_t* oStep)
     *oStep = crs - s;
     return v;
 }
-double yParseNumber(char* s, size_t* oStep)
+
+double yParseNumber(char *s, size_t *oStep)
 {
-    char* crs = s;
+    char *crs = s;
     double v, ret;
     size_t step;
     ret = yParseInt(crs, &step);
@@ -211,6 +229,7 @@ double yParseNumber(char* s, size_t* oStep)
     *oStep = crs - s;
     return ret;
 }
+
 char transMap(char c)
 {
     static char Map[2][20] = {"\"\\/bfnrt", "\"\\/\b\f\n\r\t"};
@@ -224,9 +243,10 @@ char transMap(char c)
     }
     return ret;
 }
-char* yParseString(char* s, size_t* oStep)
+
+char *yParseString(char *s, size_t *oStep)
 {
-    char* o = s;
+    char *o = s;
     int trans = 0;
     while (!(*s == sStringBE && trans == 0)) {
         if (*s == sStringTrans && trans == 0) {
@@ -238,7 +258,7 @@ char* yParseString(char* s, size_t* oStep)
     }
     *oStep = s - o;
 
-    char* ret = malloc(sizeof(*oStep));
+    char *ret = (char *)malloc(sizeof(*oStep));
     size_t i, f;
     for (i = 0, f = 0; f < *oStep; i++, f++) {
         if (o[f] == sStringTrans) {
@@ -252,7 +272,7 @@ char* yParseString(char* s, size_t* oStep)
     return ret;
 }
 
-ySymbolVal yParseSymbol(char* s, size_t* oStep)
+ySymbolVal yParseSymbol(char *s, size_t *oStep)
 {
     ySymbolVal v = ysInvalid;
     size_t i;
@@ -265,35 +285,45 @@ ySymbolVal yParseSymbol(char* s, size_t* oStep)
     }
     return v;
 }
-yNumber* ykParseNumber(char* s, size_t* oStep)
+
+yNumber *ykParseNumber(char *s, size_t *oStep)
 {
     double d = yParseNumber(s, oStep);
-    yNumber* p = yAlloc(eNumber);
+    yNumber *p = (yNumber *)yAlloc(eNumber);
     p->n = d;
     return p;
 }
-yString* ykParseString(char* crs, size_t* oStep)
+
+yString *ykParseString(char *crs, size_t *oStep)
 {
     crs++;
-    char* str = yParseString(crs, oStep);
-    yString* p = yAlloc(eString);
+    char *str = yParseString(crs, oStep);
+    yString *p = yAlloc(eString);
     p->s = str;
     *oStep += 2;
     return p;
 }
-yString* ykParseArray(char* crs, size_t* oStep)
+
+void forwardSpace(char **s)
 {
-    char* o = crs;
+    while (isspace(**s)) {
+        (*s)++;
+    }
+}
+
+yArray *ykParseArray(char *crs, size_t *oStep)
+{
+    char *o = crs;
     crs++;
     size_t step = 0;
-    yArray* pa = yAlloc(eArray);
-    yArrayNode** tail = &(pa->node);
+    yArray *pa = yAlloc(eArray);
+    yArrayNode **tail = &(pa->node);
     while (*crs != sArrayEnd) {
-        yArrayNode* pn = yAlloc(eArrayNode);
+        yArrayNode *pn = yAlloc(eArrayNode);
         pn->elm = yParse(crs, &step);
         crs += step;
         *tail = pn;
-        tail = &(pn->next);
+        tail = (yArrayNode **)&(pn->next);
         forwardSpace(&crs);
         if (*crs == sDelimeter) {
             crs++;
@@ -304,15 +334,16 @@ yString* ykParseArray(char* crs, size_t* oStep)
     tail = NULL;
     return pa;
 }
-yObject* ykParseObject(char* crs, size_t* oStep)
+
+yObject *ykParseObject(char *crs, size_t *oStep)
 {
-    char* o = crs;
+    char *o = crs;
     crs++;
-    yObject* po = yAlloc(eObject);
+    yObject *po = yAlloc(eObject);
     size_t step;
-    yObjectNode** tail = &(po->node);
+    yObjectNode **tail = &(po->node);
     while (*crs != sObjectEnd) {
-        yObjectNode* pn = yAlloc(eObjectNode);
+        yObjectNode *pn = yAlloc(eObjectNode);
         pn->key = yParse(crs, &step);
         crs += step;
         forwardSpace(&crs);
@@ -325,7 +356,7 @@ yObject* ykParseObject(char* crs, size_t* oStep)
         pn->value = yParse(crs, &step);
         crs += step;
         *tail = pn;
-        tail = &(pn->next);
+        tail = (yObjectNode **)&(pn->next);
         forwardSpace(&crs);
         if (*crs == sDelimeter) {
             crs++;
@@ -337,12 +368,13 @@ yObject* ykParseObject(char* crs, size_t* oStep)
     tail = NULL;
     return po;
 }
-ySymbol* ykParseSymbol(char* crs, size_t* oStep)
+
+ySymbol *ykParseSymbol(char *crs, size_t *oStep)
 {
     size_t step;
     ySymbolVal v = yParseSymbol(crs, &step);
     if (v != ysInvalid) {
-        ySymbol* p = yAlloc(eSymbol);
+        ySymbol *p = yAlloc(eSymbol);
         p->val = v;
         *oStep = step;
         return p;
@@ -351,15 +383,10 @@ ySymbol* ykParseSymbol(char* crs, size_t* oStep)
         return NULL;
     }
 }
-void forwardSpace(char** s)
+
+void *yParse(char *s, size_t *oStep)
 {
-    while(isspace(**s)) {
-        (*s)++;
-    }
-}
-void* yParse(char* s, size_t* oStep)
-{
-    char* crs = s;
+    char *crs = s;
     size_t step;
     void *p;
     while (1) {
@@ -375,7 +402,7 @@ void* yParse(char* s, size_t* oStep)
         } else if (*crs == sStringBE) {
             p = ykParseString(crs, &step);
             break;
-        } else if (isdigit(*crs) || *crs == '+' || *crs == '-'){
+        } else if (isdigit(*crs) || *crs == '+' || *crs == '-') {
             p = ykParseNumber(crs, &step);
             break;
         } else {

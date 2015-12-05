@@ -72,7 +72,7 @@ char* yParseString(char* s, size_t* oStep);
 void* yAlloc(yMeta meta);
 void disabledebug();
 void enabledebug();
-void yDisplay(yType* p);
+void yDisplay(void* p);
 int yParseDigit(char* s, size_t* oStep);
 int yParseInt(char *s, size_t* oStep);
 double yParseNumber(char* s, size_t* oStep);

@@ -24,7 +24,7 @@ void testNumber()
     debug("----number yParseNumber over----\n");
     yNumber* p;
     for (i = 0; i < sizeof(sarray) / sizeof(sarray[0]); i++) {
-        p = yParse(sarray[i], &step);
+        p = (yNumber *)yParse(sarray[i], &step);
         debug("s %10s %d -> d %10.3f step %d\n",
                 sarray[i], strlen(sarray[i]), p->n, step);
     }
@@ -43,7 +43,7 @@ void testString()
     };
     size_t step;
     for (size_t i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
-        p = yParse(sa[i], &step);
+        p = (yString *)yParse(sa[i], &step);
         debug("s %12s -> %12s\n", sa[i], p->s);
         // for (size_t j = 0; j < strlen(p->s); j++) {
         //     debug("%x ", p->s[j]);
@@ -68,7 +68,7 @@ void testArray()
     size_t i, step;
     for (i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
         debug("s %s ->\t", sa[i]);
-        p = yParse(sa[i], &step);
+        p = (yArray *)yParse(sa[i], &step);
         yDisplay(p);
     }
     debug("----array yParse passed----\n");
@@ -86,7 +86,7 @@ void testSymbol()
     };
     size_t step;
     for (size_t i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
-        p = yParse(sa[i], &step);
+        p = (ySymbol *)yParse(sa[i], &step);
         if (p != NULL) {
             debug("s %s -> ", sa[i]);
             yDisplay(p);
@@ -110,7 +110,7 @@ void testObject()
     };
     size_t step;
     for (size_t i = 0; i < sizeof(sa) / sizeof(sa[0]); i++) {
-        p = yParse(sa[i], &step);
+        p = (yObject *)yParse(sa[i], &step);
         if (p != NULL) {
             debug("s %s -> ", sa[i]);
             yDisplay(p);
